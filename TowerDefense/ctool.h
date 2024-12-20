@@ -72,7 +72,7 @@ void hideScrollBar();
 void hideCursor();
 void setTitle();
 
-void playSound(int audio_pos);
+void playSound(int audio_pos, int volume);
 void stopSound();
-void adjustVolume();
+void adjustSound(int& volume);
 
