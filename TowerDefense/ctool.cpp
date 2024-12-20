@@ -1,10 +1,12 @@
-﻿// ctool.cpp
+// ctool.cpp
 #include "ctool.h"
 #include "cenemy.h"
 #include "ctower.h"
 #include "cpoint.h"
 #include "cbullet.h"
 #include "cmap.h"
+#include "windows.h"
+#include "iomanip"
 
 HANDLE consoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
 HWND consoleWindow = GetConsoleWindow();
@@ -141,83 +143,6 @@ void ctool::drawMapLevelText() {
     tool.printCharactors(L"███████╗███████╗ ╚████╔╝ ███████╗███████╗", { short(x),short(y + 4) }, Color::BLACK, Color::YELLOW);
     tool.printCharactors(L"╚══════╝╚══════╝  ╚═══╝  ╚══════╝╚══════╝", { short(x),short(y + 5) }, Color::BLACK, Color::YELLOW);
 
-}
-
-void ctool::Settings() {
-    int option = 0;  
-    bool soundStatus = ctool::sound_is_open;  // Lưu trạng thái âm thanh (Bật/Tắt)
-    system("color E3");
-    while (true) {
-        // Không dùng system("cls"), tránh việc xóa toàn bộ màn hình
-        setColor(14, 3);  // Đảm bảo màu sắc mặc định trước khi bắt đầu vẽ
-
-        // In tiêu đề
-        ctool::GotoXY(5, 2);  // Chuyển đến vị trí tiêu đề
-        drawSettingText();  // In nội dung thông tin cài đặt
-
-        // Vẽ các ô cho từng mục
-        printRectangle(45, 13, 25, 3);  // Ô cho Sound
-        printRectangle(45, 17, 25, 3); // Ô cho Back to Main Menu
-
-        // In các lựa chọn trong các ô chữ nhật
-        for (int i = 0; i < 2; ++i) {
-            // Nếu đang chọn mục này, tô màu xanh
-            if (i == option) {
-                setColor(12, 3);  // Highlight in blue
-            }
-            else {
-                setColor(14, 3);  // Các mục còn lại dùng màu mặc định
-            }
-            // In các mục menu vào giữa các ô chữ nhật
-            int x_position = 45 + (30 - (i == 0 ? 15 : 18)) / 2;  // Căn giữa chữ "Sound (ON/OFF)" và "Back to Main Menu"
-            ctool::GotoXY(x_position, 14 + i * 4);  // Vị trí chữ trong ô
-
-            switch (i) {
-            case 0:
-                std::cout << "Sound (" << (soundStatus ? "ON) " : "OFF)");
-                break;
-            case 1:
-                std::cout << "Back to Main Menu";
-                break;
-            }
-        }
-
-        // Nhận đầu vào từ người dùng (phím mũi tên hoặc Enter)
-        char ch = _getch();
-
-        // Điều hướng lên/xuống
-        if (ch == KEY_UP) {  // Di chuyển lên
-            option = (option > 0) ? option - 1 : 1;
-        }
-        else if (ch == KEY_DOWN) {  // Di chuyển xuống
-            option = (option + 1) % 2;  // Nếu ở cuối, quay lại đầu
-        }
-        else if (ch == KEY_ENTER) {  // Chọn
-            if (option == 0) {  // Toggle âm thanh
-                soundStatus = !soundStatus;  // Thay đổi trạng thái âm thanh
-                ctool::sound_is_open = soundStatus;  // Cập nhật trạng thái âm thanh
-                if (ctool::sound_is_open) {
-                    playSound(BACKGROUND_SOUND);  // Phát nhạc nền nếu bật âm thanh
-                }
-                else 
-                {
-                    stopSound();  // Dừng nhạc nền nếu tắt âm thanh
-                }
-            }
-            else if (option == 1) {  // Quay lại Menu chính
-                setColor(14, 3);
-                system("cls");
-                drawTowerDefenseText();
-                break;
-            }
-        }
-        else if (ch == 27) {  // Phím ESC để quay lại
-            setColor(14, 3);
-            system("cls");
-            drawTowerDefenseText();
-            break;
-        }
-    }
 }
 
 
@@ -499,72 +424,171 @@ void ctool::drawTowerDefenseText() {
     tool.printCharactors(L"                 ╚═════╝ ╚══════╝╚═╝     ╚══════╝╚═╝  ╚═══╝╚══════╝╚══════╝", { short(x),short(y + 5) }, Color::BLACK, Color::YELLOW);
 }
 
-void playSound(int audio_pos)
-{
+void playSound(int audio_pos, int volume = 100) {
     // Thêm đường dẫn đến thư mục sounds
     const string soundFile[] = {
         "sounds/background.wav",
         "sounds/button.wav",
         "sounds/collision.wav",
-        "sounds/error.wav"
+        "sounds/error.wav",
         "sounds/end.wav",
-        "sounds/exit.wav" };
+        "sounds/exit.wav"
+    };
 
-
-    if (audio_pos < 0 || audio_pos >= sizeof(soundFile) / sizeof(soundFile[0]))
-    {
+    // Kiểm tra vị trí file hợp lệ
+    if (audio_pos < 0 || audio_pos >= sizeof(soundFile) / sizeof(soundFile[0])) {
+        cerr << "Invalid audio position!" << endl;
         return;
     }
 
-    int volume = 100;
-
     // Điều chỉnh âm lượng
-    if (volume < 0) volume = 0; // Đảm bảo âm lượng không âm
-    if (volume > 100) volume = 100; // Đảm bảo âm lượng không vượt quá 100
+    if (volume < 0) volume = 0;
+    if (volume > 100) volume = 100;
 
-    // Chuyển đổi âm lượng từ 0-100 thành 0-65535
     DWORD volumeLevel = static_cast<DWORD>(volume * 65535 / 100);
-    waveOutSetVolume(0, volumeLevel | (volumeLevel << 16)); // Thiết lập âm lượng cho cả kênh trái và phải
+    waveOutSetVolume(0, volumeLevel | (volumeLevel << 16)); // Thiết lập âm lượng
 
     // Phát âm thanh
-    PlaySoundA(soundFile[audio_pos].c_str(), NULL, SND_FILENAME | SND_ASYNC);
+    if (!PlaySoundA(soundFile[audio_pos].c_str(), NULL, SND_FILENAME | SND_ASYNC)) {
+        cerr << "Error playing sound: " << soundFile[audio_pos] << endl;
+    }
 }
+
 
 void stopSound()
 {
+
     PlaySoundA(NULL, NULL, 0);
 }
 
 void adjustSound(int& volume) {
-    cout << "Use 'd' or '->' to increase volume, 'a' or '<-' to decrease volume, 'q' to quit.\n";
+    int boxX = 20;      // Tọa độ X khung
+    int boxY = 10;      // Tọa độ Y khung
+    int boxWidth = 30;  // Chiều rộng khung
+    int boxHeight = 5;  // Chiều cao khung
+
+    system("cls");
+    cout << "Use '->' to increase volume, '<-' to decrease volume, 'q' to quit.\n";
+
+    // Vẽ khung cho Current Volume
+    ctool::printRectangle(boxX, boxY, boxWidth, boxHeight);
 
     while (true) {
-        if (_kbhit()) { // Kiểm tra nếu có phím nhấn
-            char ch = _getch(); // Lấy phím nhấn
+        // Hiển thị Current Volume ở giữa khung
+        int textX = boxX + (boxWidth - 15) / 2; // Căn giữa dòng chữ trong khung
+        int textY = boxY + boxHeight / 2;       // Vị trí Y giữa khung
+        ctool::GotoXY(textX, textY);            // Đặt vị trí con trỏ
+        DWORD volumeLevel = static_cast<DWORD>(volume * 65535 / 100);
+        waveOutSetVolume(0, volumeLevel | (volumeLevel << 16));
+        cout << "Current Volume: " << setw(3) << volume << "%";
 
-            if (ch == 'q' || ch == 'Q') { // Thoát khi nhấn 'q'
-                cout << "Exiting volume adjustment...\n";
-                break;
-            }
-            else if (ch == 'd' || ch == 77) { // Phím 'd' hoặc '->'
-                volume += 10;
-            }
-            else if (ch == 'a' || ch == 75) { // Phím 'a' hoặc '<-'
-                volume -= 10;
+        // Kiểm tra phím mũi tên phải
+        if (GetAsyncKeyState(VK_RIGHT) & 0x8000) { // VK_RIGHT là mã phím mũi tên phải
+            volume += 10;
+            if (volume > 100) volume = 100; // Giới hạn tối đa
+            Sleep(200); // Tránh xử lý quá nhanh
+        }
+
+        // Kiểm tra phím mũi tên trái
+        if (GetAsyncKeyState(VK_LEFT) & 0x8000) { // VK_LEFT là mã phím mũi tên trái
+            volume -= 10;
+            if (volume < 0) volume = 0; // Giới hạn tối thiểu
+            Sleep(200); // Tránh xử lý quá nhanh
+        }
+
+        // Kiểm tra phím 'q' để thoát
+        if (GetAsyncKeyState('Q') & 0x8000) {
+            ctool::GotoXY(boxX + (boxWidth - 22) / 2, boxY + boxHeight + 2); // Vị trí thông báo thoát
+            cout << "Exiting volume adjustment...";
+            Sleep(1000);
+            system("cls");
+            break;
+        }
+    }
+}
+
+
+void ctool::Settings() {
+    int option = 0;
+    bool soundStatus = ctool::sound_is_open; // Lưu trạng thái âm thanh
+    int volume = 100; // Giá trị âm lượng mặc định
+    system("color E3");
+
+    while (true) {
+        setColor(14, 3);
+
+        // In tiêu đề
+        ctool::GotoXY(5, 2);
+        drawSettingText();
+
+        // Vẽ các ô cho từng mục
+        printRectangle(45, 13, 25, 3);  // Ô cho Sound
+        printRectangle(45, 17, 25, 3);  // Ô cho Adjust Volume
+        printRectangle(45, 21, 25, 3);  // Ô cho Back to Main Menu
+
+        // In các lựa chọn trong các ô chữ nhật
+        for (int i = 0; i < 3; ++i) { // Có 3 mục trong menu
+            if (i == option) {
+                setColor(12, 3); // Highlight in blue
             }
             else {
-                continue; // Bỏ qua các phím không liên quan
+                setColor(14, 3); // Màu mặc định
             }
 
-            // Đảm bảo âm lượng nằm trong khoảng 0-100
-            if (volume < 0) volume = 0;
-            if (volume > 100) volume = 100;
+            int x_position = 45 + (30 - (i == 0 ? 15 : (i == 1 ? 14 : 18))) / 2;
+            ctool::GotoXY(x_position, 14 + i * 4);
 
-            // Chuyển đổi âm lượng từ 0-100 thành 0-65535
-            DWORD volumeLevel = static_cast<DWORD>(volume * 65535 / 100);
-            waveOutSetVolume(0, volumeLevel | (volumeLevel << 16)); // Cập nhật âm lượng
+            switch (i) {
+            case 0:
+                cout << "Sound (" << (soundStatus ? "ON" : "OFF") << ")";
+                break;
+            case 1:
+                ctool::GotoXY(x_position - 4, 14 + i * 4);
+                cout << "Adjust Volume (" << volume << "%)";
+                break;
+            case 2:
+                cout << "Back to Main Menu";
+                break;
+            }
+        }
 
-            cout << "Current Volume: " << volume << "%\n";
+        // Nhận đầu vào từ người dùng
+        char ch = _getch();
+        if (ch == KEY_UP) {
+            option = (option > 0) ? option - 1 : 2; // Vòng lại mục cuối
+        }
+        else if (ch == KEY_DOWN) {
+            option = (option + 1) % 3; // Vòng lại mục đầu
+        }
+        else if (ch == KEY_ENTER) {
+            if (option == 0) { // Toggle âm thanh
+                soundStatus = !soundStatus;
+                ctool::sound_is_open = soundStatus;
+
+                if (soundStatus) {
+                    playSound(0, volume); // Bật nhạc nền với âm lượng hiện tại
+                }
+                else {
+                    stopSound(); // Tắt nhạc nền
+                }
+            }
+            else if (option == 1) { // Điều chỉnh âm lượng
+                setColor(14, 3);
+                system("cls");
+                adjustSound(volume);
+            }
+            else if (option == 2) { // Quay lại Menu chính
+                setColor(14, 3);
+                system("cls");
+                drawTowerDefenseText();
+                break;
+            }
+        }
+        else if (ch == 27) { // ESC để thoát
+            setColor(14, 3);
+            system("cls");
+            drawTowerDefenseText();
+            break;
         }
     }
 }
